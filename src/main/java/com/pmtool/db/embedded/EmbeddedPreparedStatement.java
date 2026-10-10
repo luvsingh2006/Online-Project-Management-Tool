@@ -175,15 +175,13 @@ public class EmbeddedPreparedStatement implements PreparedStatement {
     @Override public void setAsciiStream(int parameterIndex, InputStream x, long length) {}
     @Override public void setBinaryStream(int parameterIndex, InputStream x, long length) {}
     @Override public void setCharacterStream(int parameterIndex, Reader reader, long length) {}
-    @Override public void setAsciiStream(String columnLabel, InputStream x, long length) {}
-    @Override public void setBinaryStream(String columnLabel, InputStream x, long length) {}
-    @Override public void setCharacterStream(String columnLabel, Reader reader, long length) {}
-    @Override public void updateBlob(int columnIndex, InputStream inputStream, long length) {}
-    @Override public void updateBlob(String columnLabel, InputStream inputStream, long length) {}
-    @Override public void updateClob(int columnIndex, Reader reader, long length) {}
-    @Override public void updateClob(String columnLabel, Reader reader, long length) {}
-    @Override public void updateNClob(int columnIndex, Reader reader, long length) {}
-    @Override public void updateNClob(String columnLabel, Reader reader, long length) {}
+    @Override public void setAsciiStream(int parameterIndex, InputStream x) {}
+    @Override public void setBinaryStream(int parameterIndex, InputStream x) {}
+    @Override public void setCharacterStream(int parameterIndex, Reader reader) {}
+    @Override public void setNCharacterStream(int parameterIndex, Reader value) {}
+    @Override public void setClob(int parameterIndex, Reader reader) {}
+    @Override public void setBlob(int parameterIndex, InputStream inputStream) {}
+    @Override public void setNClob(int parameterIndex, Reader reader) {}
     @Override public <T> T unwrap(Class<T> iface) { return null; }
     @Override public boolean isWrapperFor(Class<?> iface) { return false; }
 }

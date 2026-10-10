@@ -95,8 +95,8 @@ public class DispatcherServlet {
         resp.setHeader("Cache-Control", "no-cache");
         resp.setStatus(200);
 
-        try (in; OutputStream out = resp.getOutputStream()) {
-            in.transferTo(out);
+        try (InputStream stream = in; OutputStream out = resp.getOutputStream()) {
+            stream.transferTo(out);
         }
     }
 
