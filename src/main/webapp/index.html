@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Online Project Management Tool</title>
+    <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+
+    <!-- AUTHENTICATION VIEW CONTAINER -->
+    <div id="view-login" class="auth-wrapper">
+        <div class="auth-card">
+            <div class="auth-header">
+                <h1 class="auth-title">Project Management Tool</h1>
+                <p class="auth-subtitle">Enterprise Work Tracking & Resource Platform</p>
+            </div>
+
+            <form id="login-form">
+                <div class="form-group">
+                    <label class="form-label" for="login-email">Email Address</label>
+                    <input type="email" id="login-email" class="form-control" style="width: 100%;" placeholder="name@company.com" required autocomplete="email">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="login-password">Password</label>
+                    <input type="password" id="login-password" class="form-control" style="width: 100%;" placeholder="Enter password" required autocomplete="current-password">
+                </div>
+
+                <button type="submit" id="btn-login-submit" class="btn btn-primary" style="width: 100%; margin-top: 8px;">
+                    Sign In
+                </button>
+            </form>
+
+            <div class="demo-credentials-box">
+                <div class="demo-title">Quick Evaluation Demo Profiles</div>
+                <div class="demo-btn-group">
+                    <button type="button" class="demo-pill-btn" onclick="prefillLogin('admin@pmtool.local', 'Admin@1234')">
+                        <div>
+                            <span class="demo-pill-role">Administrator</span>
+                            <div class="demo-pill-desc">Sarah Jenkins &bull; Full System Control</div>
+                        </div>
+                        <span class="badge badge-admin">ADMIN</span>
+                    </button>
+                    <button type="button" class="demo-pill-btn" onclick="prefillLogin('manager@pmtool.local', 'Manager@1234')">
+                        <div>
+                            <span class="demo-pill-role">Project Manager</span>
+                            <div class="demo-pill-desc">David Vance &bull; Project & Task Allocation</div>
+                        </div>
+                        <span class="badge badge-manager">MANAGER</span>
+                    </button>
+                    <button type="button" class="demo-pill-btn" onclick="prefillLogin('dev1@pmtool.local', 'Dev@1234')">
+                        <div>
+                            <span class="demo-pill-role">Team Member</span>
+                            <div class="demo-pill-desc">Alex Rivera &bull; Kanban & Time Logging</div>
+                        </div>
+                        <span class="badge badge-member">MEMBER</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP WORKSPACE CONTAINER -->
+    <div id="app-layout" class="hidden">
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="brand-title">PROJECTFLOW</div>
+                <div class="brand-subtitle">Project & Task Management</div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-section-label">Navigation</div>
+                <a class="nav-item active" data-view="dashboard" onclick="switchNav('dashboard')">
+                    <span>Dashboard</span>
+                </a>
+                <a class="nav-item" data-view="projects" onclick="switchNav('projects')">
+                    <span>Projects</span>
+                    <span id="nav-count-projects" class="nav-badge">0</span>
+                </a>
+                <a class="nav-item" data-view="tasks" onclick="switchNav('tasks')">
+                    <span>Tasks & Board</span>
+                    <span id="nav-count-tasks" class="nav-badge">0</span>
+                </a>
+
+                <div id="admin-nav-section" class="hidden">
+                    <div class="nav-section-label" style="margin-top: 16px;">Administration</div>
+                    <a class="nav-item" data-view="admin-users" onclick="switchNav('admin-users')">
+                        <span>User Management</span>
+                    </a>
+                    <a class="nav-item" data-view="admin-audit" onclick="switchNav('admin-audit')">
+                        <span>Audit Log</span>
+                    </a>
+                    <a class="nav-item" data-view="admin-settings" onclick="switchNav('admin-settings')">
+                        <span>System Settings</span>
+                    </a>
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-profile-badge">
+                    <div id="user-avatar" class="user-avatar-initials">U</div>
+                    <div class="user-profile-info">
+                        <div id="current-user-name" class="user-profile-name">User Name</div>
+                        <div id="current-user-role" class="user-profile-role">Role</div>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="logout()" title="Logout">
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN WORKSPACE -->
+        <main class="main-workspace">
+
+            <!-- TOP HEADER -->
+            <header class="top-header">
+                <div class="header-left">
+                    <h2 id="view-header-title" class="page-title">Dashboard Overview</h2>
+                </div>
+                <div class="header-right">
+                    <button type="button" id="btn-header-new-project" class="btn btn-secondary btn-sm hidden" onclick="openNewProjectModal()">
+                        + New Project
+                    </button>
+                    <button type="button" id="btn-header-new-task" class="btn btn-primary btn-sm hidden" onclick="openNewTaskModal()">
+                        + New Task
+                    </button>
+                </div>
+            </header>
+
+            <!-- SCROLLABLE BODY -->
+            <div class="content-body">
+
+                <!-- 1. DASHBOARD VIEW -->
+                <section id="section-dashboard">
+                    <!-- Metrics row will be dynamically populated -->
+                    <div id="dashboard-metrics" class="metrics-grid"></div>
+
+                    <!-- Role specific overview widgets -->
+                    <div id="dashboard-role-widgets"></div>
+                </section>
+
+                <!-- 2. PROJECTS VIEW -->
+                <section id="section-projects" class="hidden">
+                    <div class="filter-toolbar">
+                        <div class="filter-group">
+                            <input type="text" id="project-search-input" class="form-control" placeholder="Search projects..." oninput="debounceProjectSearch()">
+                            <select id="project-status-filter" class="form-control" onchange="loadProjects()">
+                                <option value="ALL">All Statuses</option>
+                                <option value="PLANNING">Planning</option>
+                                <option value="IN_PROGRESS">In Progress</option>
+                                <option value="ON_HOLD">On Hold</option>
+                                <option value="COMPLETED">Completed</option>
+                                <option value="CANCELLED">Cancelled</option>
+                            </select>
+                            <select id="project-priority-filter" class="form-control" onchange="loadProjects()">
+                                <option value="ALL">All Priorities</option>
+                                <option value="LOW">Low</option>
+                                <option value="MEDIUM">Medium</option>
+                                <option value="HIGH">High</option>
+                                <option value="CRITICAL">Critical</option>
+                            </select>
+                        </div>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="openNewProjectModal()">
+                            + Create Project
+                        </button>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Project Title</th>
+                                    <th>Manager</th>
+                                    <th>Status</th>
+                                    <th>Priority</th>
+                                    <th>Progress</th>
+                                    <th>Tasks</th>
+                                    <th>Due Date</th>
+                                    <th class="text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="projects-table-body">
+                                <tr><td colspan="9" class="text-center text-muted">Loading projects...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- 3. TASKS & KANBAN VIEW -->
+                <section id="section-tasks" class="hidden">
+                    <div class="filter-toolbar">
+                        <div class="filter-group">
+                            <input type="text" id="task-search-input" class="form-control" placeholder="Search tasks..." oninput="debounceTaskSearch()">
+                            <select id="task-project-filter" class="form-control" onchange="loadTasks()">
+                                <option value="ALL">All Projects</option>
+                            </select>
+                            <select id="task-assignee-filter" class="form-control" onchange="loadTasks()">
+                                <option value="ALL">All Assignees</option>
+                            </select>
+                            <select id="task-priority-filter" class="form-control" onchange="loadTasks()">
+                                <option value="ALL">All Priorities</option>
+                                <option value="LOW">Low</option>
+                                <option value="MEDIUM">Medium</option>
+                                <option value="HIGH">High</option>
+                                <option value="CRITICAL">Critical</option>
+                            </select>
+                            <div style="display: flex; gap: 4px;">
+                                <button type="button" id="btn-toggle-kanban" class="btn btn-secondary btn-sm" onclick="setTaskViewMode('kanban')">Board</button>
+                                <button type="button" id="btn-toggle-table" class="btn btn-secondary btn-sm" onclick="setTaskViewMode('table')">List</button>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="openNewTaskModal()">
+                            + Create Task
+                        </button>
+                    </div>
+
+                    <!-- Kanban Board Container -->
+                    <div id="tasks-kanban-container" class="kanban-board">
+                        <!-- Columns: To Do, In Progress, In Review, Completed -->
+                        <div class="kanban-column" data-status="TODO">
+                            <div class="kanban-column-header">
+                                <span class="kanban-column-title">To Do</span>
+                                <span id="count-col-todo" class="kanban-count">0</span>
+                            </div>
+                            <div id="cards-col-todo" class="kanban-cards-container"></div>
+                        </div>
+                        <div class="kanban-column" data-status="IN_PROGRESS">
+                            <div class="kanban-column-header">
+                                <span class="kanban-column-title">In Progress</span>
+                                <span id="count-col-progress" class="kanban-count">0</span>
+                            </div>
+                            <div id="cards-col-progress" class="kanban-cards-container"></div>
+                        </div>
+                        <div class="kanban-column" data-status="IN_REVIEW">
+                            <div class="kanban-column-header">
+                                <span class="kanban-column-title">Code Review</span>
+                                <span id="count-col-review" class="kanban-count">0</span>
+                            </div>
+                            <div id="cards-col-review" class="kanban-cards-container"></div>
+                        </div>
+                        <div class="kanban-column" data-status="COMPLETED">
+                            <div class="kanban-column-header">
+                                <span class="kanban-column-title">Completed</span>
+                                <span id="count-col-completed" class="kanban-count">0</span>
+                            </div>
+                            <div id="cards-col-completed" class="kanban-cards-container"></div>
+                        </div>
+                    </div>
+
+                    <!-- Task Table View Container -->
+                    <div id="tasks-table-container" class="table-container hidden">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Task Title</th>
+                                    <th>Project</th>
+                                    <th>Assignee</th>
+                                    <th>Status</th>
+                                    <th>Priority</th>
+                                    <th>Hours</th>
+                                    <th>Due Date</th>
+                                    <th class="text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tasks-table-body">
+                                <tr><td colspan="9" class="text-center text-muted">Loading tasks...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- 4. ADMIN USERS VIEW -->
+                <section id="section-admin-users" class="hidden">
+                    <div class="filter-toolbar">
+                        <div class="filter-group">
+                            <input type="text" id="admin-user-search-input" class="form-control" placeholder="Search users..." oninput="debounceUserSearch()">
+                            <select id="admin-user-role-filter" class="form-control" onchange="loadAdminUsers()">
+                                <option value="ALL">All Roles</option>
+                                <option value="ADMIN">Administrator</option>
+                                <option value="PROJECT_MANAGER">Project Manager</option>
+                                <option value="TEAM_MEMBER">Team Member</option>
+                            </select>
+                        </div>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="openNewUserModal()">
+                            + Add User
+                        </button>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Full Name</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Department</th>
+                                    <th>Job Title</th>
+                                    <th>Status</th>
+                                    <th class="text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-users-table-body">
+                                <tr><td colspan="8" class="text-center text-muted">Loading users...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- 5. ADMIN AUDIT LOG VIEW -->
+                <section id="section-admin-audit" class="hidden">
+                    <div class="filter-toolbar">
+                        <div class="filter-group">
+                            <span style="font-weight: 600; color: var(--text-secondary);">Recent Audit Events Stream</span>
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="loadAdminAuditLogs()">
+                            Refresh Log
+                        </button>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Timestamp</th>
+                                    <th>Operator</th>
+                                    <th>Action</th>
+                                    <th>Entity</th>
+                                    <th>Entity ID</th>
+                                    <th>Details</th>
+                                    <th>IP Address</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-audit-table-body">
+                                <tr><td colspan="8" class="text-center text-muted">Loading audit events...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- 6. ADMIN SYSTEM SETTINGS VIEW -->
+                <section id="section-admin-settings" class="hidden">
+                    <div style="max-width: 680px;">
+                        <div class="table-container" style="padding: 24px;">
+                            <h3 style="margin-bottom: 16px; font-size: 16px; font-weight: 700;">System Configuration Parameters</h3>
+                            <div id="settings-form-container">
+                                <p class="text-muted">Loading configuration settings...</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- MODALS CONTAINER -->
+    <div id="modal-backdrop" class="modal-overlay hidden">
+        
+        <!-- PROJECT MODAL -->
+        <div id="modal-project" class="modal-container hidden">
+            <div class="modal-header">
+                <h3 id="modal-project-title" class="modal-title">Create Project</h3>
+                <button type="button" class="modal-close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="project-form">
+                    <input type="hidden" id="project-id">
+                    <div class="form-group">
+                        <label class="form-label" for="project-name">Project Title *</label>
+                        <input type="text" id="project-name" class="form-control" style="width: 100%;" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="project-desc">Description</label>
+                        <textarea id="project-desc" class="form-control" style="width: 100%;" rows="3"></textarea>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label class="form-label" for="project-status">Status</label>
+                            <select id="project-status" class="form-control" style="width: 100%;">
+                                <option value="PLANNING">Planning</option>
+                                <option value="IN_PROGRESS">In Progress</option>
+                                <option value="ON_HOLD">On Hold</option>
+                                <option value="COMPLETED">Completed</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="project-priority">Priority</label>
+                            <select id="project-priority" class="form-control" style="width: 100%;">
+                                <option value="LOW">Low</option>
+                                <option value="MEDIUM" selected>Medium</option>
+                                <option value="HIGH">High</option>
+                                <option value="CRITICAL">Critical</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label class="form-label" for="project-manager-select">Manager</label>
+                            <select id="project-manager-select" class="form-control" style="width: 100%;">
+                                <option value="">Select Manager</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="project-budget">Budget ($)</label>
+                            <input type="number" id="project-budget" class="form-control" style="width: 100%;" step="100" value="0">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label class="form-label" for="project-start-date">Start Date</label>
+                            <input type="date" id="project-start-date" class="form-control" style="width: 100%;">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="project-due-date">Due Date</label>
+                            <input type="date" id="project-due-date" class="form-control" style="width: 100%;">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveProject()">Save Project</button>
+            </div>
+        </div>
+
+        <!-- TASK MODAL -->
+        <div id="modal-task" class="modal-container hidden">
+            <div class="modal-header">
+                <h3 id="modal-task-title" class="modal-title">Create Task</h3>
+                <button type="button" class="modal-close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="task-form">
+                    <input type="hidden" id="task-id">
+                    <div class="form-group">
+                        <label class="form-label" for="task-title">Task Title *</label>
+                        <input type="text" id="task-title" class="form-control" style="width: 100%;" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="task-desc">Description</label>
+                        <textarea id="task-desc" class="form-control" style="width: 100%;" rows="3"></textarea>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label class="form-label" for="task-project-select">Project *</label>
+                            <select id="task-project-select" class="form-control" style="width: 100%;" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="task-assignee-select">Assignee</label>
+                            <select id="task-assignee-select" class="form-control" style="width: 100%;"></select>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label class="form-label" for="task-status">Status</label>
+                            <select id="task-status" class="form-control" style="width: 100%;">
+                                <option value="TODO">To Do</option>
+                                <option value="IN_PROGRESS">In Progress</option>
+                                <option value="IN_REVIEW">In Review</option>
+                                <option value="COMPLETED">Completed</option>
+                                <option value="BLOCKED">Blocked</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="task-priority">Priority</label>
+                            <select id="task-priority" class="form-control" style="width: 100%;">
+                                <option value="LOW">Low</option>
+                                <option value="MEDIUM" selected>Medium</option>
+                                <option value="HIGH">High</option>
+                                <option value="CRITICAL">Critical</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label class="form-label" for="task-est-hours">Estimated Hours</label>
+                            <input type="number" id="task-est-hours" class="form-control" style="width: 100%;" step="0.5" value="4.0">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="task-due-date">Due Date</label>
+                            <input type="date" id="task-due-date" class="form-control" style="width: 100%;">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveTask()">Save Task</button>
+            </div>
+        </div>
+
+        <!-- TASK DETAIL & DISCUSSION MODAL -->
+        <div id="modal-task-detail" class="modal-container modal-container-lg hidden">
+            <div class="modal-header">
+                <div>
+                    <span id="detail-task-code" class="card-code">PRJ-101-T1</span>
+                    <h3 id="detail-task-title" class="modal-title" style="margin-top: 2px;">Task Details</h3>
+                </div>
+                <button type="button" class="modal-close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
+                    <div>
+                        <div style="margin-bottom: 20px;">
+                            <h4 style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;">Description</h4>
+                            <p id="detail-task-desc" style="font-size: 13px; line-height: 1.5; color: var(--text-secondary);"></p>
+                        </div>
+
+                        <!-- Discussions Feed -->
+                        <div>
+                            <h4 style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">Activity & Comments</h4>
+                            <div id="detail-task-comments" class="comments-feed">
+                                <p class="text-muted" style="font-size: 12px;">No comments yet.</p>
+                            </div>
+                            <form id="comment-form" onsubmit="submitComment(event)">
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" id="new-comment-input" class="form-control" style="flex: 1;" placeholder="Add a comment or work update..." required>
+                                    <button type="submit" class="btn btn-primary btn-sm">Post</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div style="background-color: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px;">
+                        <h4 style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px;">Task Information</h4>
+                        
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-size: 11px; color: var(--text-muted);">Status</div>
+                            <div id="detail-task-status-container" style="margin-top: 4px;"></div>
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-size: 11px; color: var(--text-muted);">Priority</div>
+                            <div id="detail-task-priority-container" style="margin-top: 4px;"></div>
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-size: 11px; color: var(--text-muted);">Assignee</div>
+                            <div id="detail-task-assignee" style="font-weight: 600; font-size: 13px;">Unassigned</div>
+                        </div>
+
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-size: 11px; color: var(--text-muted);">Time Tracking</div>
+                            <div id="detail-task-time" style="font-size: 13px; font-weight: 600;">0.0 / 0.0 hrs</div>
+                        </div>
+
+                        <div style="margin-bottom: 16px;">
+                            <div style="font-size: 11px; color: var(--text-muted);">Due Date</div>
+                            <div id="detail-task-duedate" style="font-size: 13px;">-</div>
+                        </div>
+
+                        <button type="button" class="btn btn-secondary btn-sm" style="width: 100%; margin-bottom: 6px;" onclick="openLogHoursModal(currentActiveTaskId)">
+                            Log Hours
+                        </button>
+                        <button type="button" id="btn-edit-active-task" class="btn btn-secondary btn-sm" style="width: 100%;" onclick="openEditTaskModal(currentActiveTaskId)">
+                            Edit Details
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Close</button>
+            </div>
+        </div>
+
+        <!-- TIME LOG MODAL -->
+        <div id="modal-timelog" class="modal-container hidden">
+            <div class="modal-header">
+                <h3 class="modal-title">Log Work Hours</h3>
+                <button type="button" class="modal-close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="timelog-form">
+                    <input type="hidden" id="timelog-task-id">
+                    <div class="form-group">
+                        <label class="form-label" for="timelog-hours">Hours Spent *</label>
+                        <input type="number" id="timelog-hours" class="form-control" style="width: 100%;" min="0.25" max="24" step="0.25" value="1.0" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="timelog-note">Work Description / Activity Note *</label>
+                        <textarea id="timelog-note" class="form-control" style="width: 100%;" rows="3" placeholder="Describe the work executed..." required></textarea>
+                    </div>
+                </form>
+
+                <div style="margin-top: 16px;">
+                    <h4 style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">Previous Logs on this Task</h4>
+                    <div id="timelog-history" style="max-height: 150px; overflow-y: auto;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitTimeLog()">Submit Hours</button>
+            </div>
+        </div>
+
+        <!-- USER MODAL (ADMIN) -->
+        <div id="modal-user" class="modal-container hidden">
+            <div class="modal-header">
+                <h3 id="modal-user-title" class="modal-title">Add User</h3>
+                <button type="button" class="modal-close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="user-form">
+                    <input type="hidden" id="user-id">
+                    <div class="form-group">
+                        <label class="form-label" for="user-fullname">Full Name *</label>
+                        <input type="text" id="user-fullname" class="form-control" style="width: 100%;" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="user-email">Email Address *</label>
+                        <input type="email" id="user-email" class="form-control" style="width: 100%;" required>
+                    </div>
+                    <div id="user-password-group" class="form-group">
+                        <label class="form-label" for="user-password">Initial Password *</label>
+                        <input type="password" id="user-password" class="form-control" style="width: 100%;" value="Pass@1234">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label class="form-label" for="user-role">System Role *</label>
+                            <select id="user-role" class="form-control" style="width: 100%;">
+                                <option value="TEAM_MEMBER">Team Member</option>
+                                <option value="PROJECT_MANAGER">Project Manager</option>
+                                <option value="ADMIN">Administrator</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="user-status">Status</label>
+                            <select id="user-status" class="form-control" style="width: 100%;">
+                                <option value="ACTIVE">Active</option>
+                                <option value="INACTIVE">Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label class="form-label" for="user-department">Department</label>
+                            <input type="text" id="user-department" class="form-control" style="width: 100%;" placeholder="Engineering">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="user-jobtitle">Job Title</label>
+                            <input type="text" id="user-jobtitle" class="form-control" style="width: 100%;" placeholder="Software Engineer">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveUser()">Save User</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- TOAST NOTIFICATIONS -->
+    <div id="toast-container"></div>
+
+    <!-- SCRIPTS -->
+    <script src="/js/api.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>
