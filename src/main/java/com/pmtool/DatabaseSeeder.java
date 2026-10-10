@@ -16,53 +16,41 @@ public class DatabaseSeeder {
     private static final Logger LOGGER = Logger.getLogger(DatabaseSeeder.class.getName());
 
     public static void seedIfEmpty(UserService userService, ProjectService projectService, TaskService taskService) {
-        List<User> existingUsers = userService.listUsers(null, null);
-        if (!existingUsers.isEmpty()) {
-            LOGGER.info("Database already contains " + existingUsers.size() + " users. Skipping data seeding.");
+        // Check project count rather than user count — this handles partial seeds
+        // where users were created but the seeder aborted before creating projects.
+        List<Project> existingProjects = projectService.listProjects(null, null, null, null);
+        if (!existingProjects.isEmpty()) {
+            LOGGER.info("Database already seeded (" + existingProjects.size() + " projects found). Skipping.");
             return;
         }
 
-        LOGGER.info("Empty database detected. Seeding realistic engineering project data...");
+        LOGGER.info("No projects found. Seeding realistic engineering project data...");
 
         try {
             // 1. Seed System Users across all 3 roles
-            User admin = new User();
-            admin.setFullName("Sarah Jenkins");
-            admin.setEmail("admin@pmtool.local");
-            admin.setRole(Role.ADMIN);
-            admin.setStatus(UserStatus.ACTIVE);
-            admin.setDepartment("Engineering Operations");
-            admin.setJobTitle("Director of Infrastructure");
-            admin = userService.createUser(admin, "Admin@1234", 1L);
+            // Each createUser call is wrapped individually so that a partial seed from a
+            // previous run (where some users already exist) can recover gracefully.
+            User admin = findOrCreateUser(userService,
+                    "Sarah Jenkins", "admin@pmtool.local", Role.ADMIN,
+                    "Engineering Operations", "Director of Infrastructure",
+                    "Admin@1234", 1L, null);
 
-            User manager = new User();
-            manager.setFullName("David Vance");
-            manager.setEmail("manager@pmtool.local");
-            manager.setRole(Role.PROJECT_MANAGER);
-            manager.setStatus(UserStatus.ACTIVE);
-            manager.setDepartment("Platform Delivery");
-            manager.setJobTitle("Lead Technical Project Manager");
-            manager = userService.createUser(manager, "Manager@1234", admin.getId());
+            User manager = findOrCreateUser(userService,
+                    "David Vance", "manager@pmtool.local", Role.PROJECT_MANAGER,
+                    "Platform Delivery", "Lead Technical Project Manager",
+                    "Manager@1234", admin.getId(), admin.getId());
 
-            User dev1 = new User();
-            dev1.setFullName("Alex Rivera");
-            dev1.setEmail("dev1@pmtool.local");
-            dev1.setRole(Role.TEAM_MEMBER);
-            dev1.setStatus(UserStatus.ACTIVE);
-            dev1.setDepartment("Backend Engineering");
-            dev1.setJobTitle("Senior Distributed Systems Engineer");
-            dev1 = userService.createUser(dev1, "Dev@1234", admin.getId());
+            User dev1 = findOrCreateUser(userService,
+                    "Alex Rivera", "dev1@pmtool.local", Role.TEAM_MEMBER,
+                    "Backend Engineering", "Senior Distributed Systems Engineer",
+                    "Dev@1234", admin.getId(), admin.getId());
 
-            User dev2 = new User();
-            dev2.setFullName("Elena Rostova");
-            dev2.setEmail("dev2@pmtool.local");
-            dev2.setRole(Role.TEAM_MEMBER);
-            dev2.setStatus(UserStatus.ACTIVE);
-            dev2.setDepartment("Frontend & Quality");
-            dev2.setJobTitle("Full Stack & QA Automation Engineer");
-            dev2 = userService.createUser(dev2, "Dev@1234", admin.getId());
+            User dev2 = findOrCreateUser(userService,
+                    "Elena Rostova", "dev2@pmtool.local", Role.TEAM_MEMBER,
+                    "Frontend & Quality", "Full Stack & QA Automation Engineer",
+                    "Dev@1234", admin.getId(), admin.getId());
 
-            LOGGER.info("Seeded 4 realistic user profiles (Admin, Manager, 2 Team Members).");
+            LOGGER.info("User profiles ready (Admin, Manager, 2 Team Members).");
 
             Instant now = Instant.now();
 
@@ -189,7 +177,7 @@ public class DatabaseSeeder {
             LOGGER.info("Initial data seeding completed successfully! All entities ready for evaluation.");
 
         } catch (Exception e) {
-            LOGGER.severe("Data seeding encountered error: " + e.getMessage());
+            LOGGER.log(java.util.logging.Level.SEVERE, "Data seeding encountered error: " + e.getMessage(), e);
         }
     }
 
@@ -207,5 +195,33 @@ public class DatabaseSeeder {
         t.setEstimatedHours(estHours);
         t.setDueDate(Timestamp.from(due));
         return taskService.createTask(t, creatorId);
+    }
+
+    /**
+     * Creates a user with the given details if no user with that email exists yet.
+     * If the email is already taken (e.g. from a prior partial seed), the existing
+     * user record is fetched from the list and returned instead of throwing.
+     */
+    private static User findOrCreateUser(UserService userService,
+                                         String fullName, String email, Role role,
+                                         String department, String jobTitle,
+                                         String password, Long createdById, Long adminId) {
+        try {
+            User u = new User();
+            u.setFullName(fullName);
+            u.setEmail(email);
+            u.setRole(role);
+            u.setStatus(UserStatus.ACTIVE);
+            u.setDepartment(department);
+            u.setJobTitle(jobTitle);
+            return userService.createUser(u, password, createdById);
+        } catch (Exception e) {
+            // If creation failed because the email already exists, look up the existing record.
+            LOGGER.info("User " + email + " already exists, fetching existing record.");
+            return userService.listUsers(null, null).stream()
+                    .filter(u -> email.equals(u.getEmail()))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("Cannot find or create user: " + email, e));
+        }
     }
 }

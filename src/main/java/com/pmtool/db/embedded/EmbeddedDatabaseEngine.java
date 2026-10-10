@@ -234,18 +234,7 @@ public class EmbeddedDatabaseEngine implements Serializable {
             whereParams.add(params.get(i));
         }
 
-        List<RowData> candidateRows = table.getRowsSnapshot();
-        int updated = 0;
-
-        for (RowData row : candidateRows) {
-            if (evaluateWhere(whereClause, row, whereParams)) {
-                for (Map.Entry<String, Object> entry : updateValues.entrySet()) {
-                    row.set(entry.getKey(), entry.getValue());
-                }
-                updated++;
-            }
-        }
-
+        int updated = table.updateMatching(row -> evaluateWhere(whereClause, row, whereParams), updateValues);
         if (updated > 0) {
             persist();
         }
@@ -266,16 +255,7 @@ public class EmbeddedDatabaseEngine implements Serializable {
         }
 
         String whereClause = matcher.group(2);
-        List<RowData> toDelete = new ArrayList<>();
-        List<RowData> allRows = table.getRowsSnapshot();
-
-        for (RowData r : allRows) {
-            if (evaluateWhere(whereClause, r, params)) {
-                toDelete.add(r);
-            }
-        }
-
-        int count = table.deleteRows(toDelete);
+        int count = table.deleteMatching(r -> evaluateWhere(whereClause, r, params));
         if (count > 0) {
             persist();
         }
@@ -293,7 +273,7 @@ public class EmbeddedDatabaseEngine implements Serializable {
 
     private QueryResult parseAndExecuteSelect(String sql, List<Object> params) throws SQLException {
         String normalized = sql.replaceAll("\\s+", " ").trim();
-        Pattern selectPattern = Pattern.compile("SELECT\\s+(.+?)\\s+FROM\\s+([A-Za-z0-9_]+)(?:\\s+([A-Za-z0-9_]+))?(.*)$", Pattern.CASE_INSENSITIVE);
+        Pattern selectPattern = Pattern.compile("SELECT\\s+(.+?)\\s+FROM\\s+([A-Za-z0-9_]+)(?:\\s+(?:AS\\s+)?(?!WHERE\\b|JOIN\\b|LEFT\\b|RIGHT\\b|INNER\\b|ORDER\\b|GROUP\\b|LIMIT\\b)([A-Za-z0-9_]+))?(.*)$", Pattern.CASE_INSENSITIVE);
         Matcher m = selectPattern.matcher(normalized);
         if (!m.find()) {
             throw new SQLException("Malformed SELECT SQL: " + sql);
@@ -308,31 +288,51 @@ public class EmbeddedDatabaseEngine implements Serializable {
             throw new SQLException("Table not found: " + primaryTableName);
         }
 
-        String joinTable = null;
-        String joinOnLeft = null;
-        String joinOnRight = null;
+        List<String[]> joins = new ArrayList<>();
         if (remainder.toUpperCase(Locale.ROOT).contains("JOIN")) {
             Pattern joinPat = Pattern.compile("(?:LEFT\\s+)?JOIN\\s+([A-Za-z0-9_]+)(?:\\s+([A-Za-z0-9_]+))?\\s+ON\\s+([A-Za-z0-9_\\.]+)\\s*=\\s*([A-Za-z0-9_\\.]+)", Pattern.CASE_INSENSITIVE);
             Matcher jm = joinPat.matcher(remainder);
-            if (jm.find()) {
-                joinTable = jm.group(1).trim().toUpperCase(Locale.ROOT);
-                joinOnLeft = jm.group(3).trim().toUpperCase(Locale.ROOT);
-                joinOnRight = jm.group(4).trim().toUpperCase(Locale.ROOT);
-                remainder = remainder.substring(jm.end()).trim();
+            int lastEnd = 0;
+            while (jm.find()) {
+                String jTable = jm.group(1).trim().toUpperCase(Locale.ROOT);
+                String jLeft = jm.group(3).trim().toUpperCase(Locale.ROOT);
+                String jRight = jm.group(4).trim().toUpperCase(Locale.ROOT);
+                joins.add(new String[]{jTable, jLeft, jRight});
+                lastEnd = jm.end();
+            }
+            if (lastEnd > 0) {
+                remainder = remainder.substring(lastEnd).trim();
             }
         }
 
         String whereClause = null;
         if (remainder.toUpperCase(Locale.ROOT).contains("WHERE")) {
             int whereIdx = indexOfIgnoreCase(remainder, "WHERE");
+            int groupIdx = indexOfIgnoreCase(remainder, "GROUP BY");
             int orderIdx = indexOfIgnoreCase(remainder, "ORDER BY");
             int limitIdx = indexOfIgnoreCase(remainder, "LIMIT");
 
             int endIdx = remainder.length();
+            if (groupIdx > whereIdx) endIdx = Math.min(endIdx, groupIdx);
             if (orderIdx > whereIdx) endIdx = Math.min(endIdx, orderIdx);
             if (limitIdx > whereIdx) endIdx = Math.min(endIdx, limitIdx);
 
             whereClause = remainder.substring(whereIdx + 5, endIdx).trim();
+            remainder = remainder.substring(endIdx).trim();
+        }
+
+        String groupByCol = null;
+        if (remainder.toUpperCase(Locale.ROOT).contains("GROUP BY")) {
+            int groupIdx = indexOfIgnoreCase(remainder, "GROUP BY");
+            int orderIdx = indexOfIgnoreCase(remainder, "ORDER BY");
+            int limitIdx = indexOfIgnoreCase(remainder, "LIMIT");
+
+            int endIdx = remainder.length();
+            if (orderIdx > groupIdx) endIdx = Math.min(endIdx, orderIdx);
+            if (limitIdx > groupIdx) endIdx = Math.min(endIdx, limitIdx);
+
+            String groupClause = remainder.substring(groupIdx + 8, endIdx).trim();
+            groupByCol = cleanCol(groupClause);
             remainder = remainder.substring(endIdx).trim();
         }
 
@@ -369,16 +369,18 @@ public class EmbeddedDatabaseEngine implements Serializable {
         }
 
         List<RowData> baseRows = primaryTable.getRowsSnapshot();
-        List<RowData> combinedRows = new ArrayList<>();
+        List<RowData> combinedRows = new ArrayList<>(baseRows);
 
-        if (joinTable != null) {
-            TableData secondary = getTable(joinTable);
+        for (String[] join : joins) {
+            String jTable = join[0];
+            String leftCol = join[1].contains(".") ? join[1].substring(join[1].lastIndexOf('.') + 1) : join[1];
+            String rightCol = join[2].contains(".") ? join[2].substring(join[2].lastIndexOf('.') + 1) : join[2];
+
+            TableData secondary = getTable(jTable);
             List<RowData> secRows = secondary != null ? secondary.getRowsSnapshot() : Collections.emptyList();
+            List<RowData> nextCombined = new ArrayList<>();
 
-            String leftCol = joinOnLeft.contains(".") ? joinOnLeft.substring(joinOnLeft.lastIndexOf('.') + 1) : joinOnLeft;
-            String rightCol = joinOnRight.contains(".") ? joinOnRight.substring(joinOnRight.lastIndexOf('.') + 1) : joinOnRight;
-
-            for (RowData pRow : baseRows) {
+            for (RowData pRow : combinedRows) {
                 Object pKey = pRow.get(leftCol);
                 boolean matched = false;
                 for (RowData sRow : secRows) {
@@ -390,17 +392,32 @@ public class EmbeddedDatabaseEngine implements Serializable {
                                 merged.set(e.getKey(), e.getValue());
                             }
                         }
-                        combinedRows.add(merged);
+                        nextCombined.add(merged);
                         matched = true;
                         break;
                     }
                 }
                 if (!matched) {
-                    combinedRows.add(pRow.clone());
+                    nextCombined.add(pRow.clone());
                 }
             }
-        } else {
-            combinedRows = baseRows;
+            combinedRows = nextCombined;
+        }
+
+        if (!selectFields.equals("*")) {
+            for (String colToken : selectFields.split(",")) {
+                String token = colToken.trim();
+                if (token.toUpperCase(Locale.ROOT).contains(" AS ")) {
+                    String[] asParts = token.split("(?i)\\s+AS\\s+");
+                    String sourceCol = cleanCol(asParts[0]);
+                    String aliasCol = cleanCol(asParts[1]);
+                    for (RowData r : combinedRows) {
+                        if (r.has(sourceCol)) {
+                            r.set(aliasCol, r.get(sourceCol));
+                        }
+                    }
+                }
+            }
         }
 
         List<RowData> filtered = new ArrayList<>();
@@ -408,6 +425,24 @@ public class EmbeddedDatabaseEngine implements Serializable {
             if (evaluateWhere(whereClause, r, params)) {
                 filtered.add(r);
             }
+        }
+
+        if (groupByCol != null) {
+            Map<Object, Integer> groups = new LinkedHashMap<>();
+            for (RowData r : filtered) {
+                Object gVal = r.get(groupByCol);
+                groups.put(gVal, groups.getOrDefault(gVal, 0) + 1);
+            }
+
+            QueryResult qr = new QueryResult(List.of(groupByCol, "CNT", "COUNT"));
+            for (Map.Entry<Object, Integer> entry : groups.entrySet()) {
+                RowData r = new RowData();
+                r.set(groupByCol, entry.getKey());
+                r.set("CNT", (long) entry.getValue());
+                r.set("COUNT", (long) entry.getValue());
+                qr.addRow(r);
+            }
+            return qr;
         }
 
         if (selectFields.toUpperCase(Locale.ROOT).startsWith("COUNT(")) {
@@ -483,31 +518,64 @@ public class EmbeddedDatabaseEngine implements Serializable {
         int paramIndex = 0;
         for (String cond : andTokens) {
             String c = cond.trim();
-            if (c.contains("=")) {
-                String[] parts = c.split("=");
-                String col = cleanCol(parts[0]);
-                Object targetVal = parts[1].trim().equals("?") ? (paramIndex < params.size() ? params.get(paramIndex++) : null) : parts[1].trim().replace("'", "");
-                Object rowVal = row.get(col);
-                if (!Objects.equals(normalizeValue(rowVal), normalizeValue(targetVal))) {
-                    return false;
-                }
-            } else if (c.toUpperCase(Locale.ROOT).contains("LIKE")) {
-                String[] parts = c.split("(?i)\\s+LIKE\\s+");
-                String col = cleanCol(parts[0]);
-                String pattern = parts[1].trim().equals("?") ? String.valueOf(paramIndex < params.size() ? params.get(paramIndex++) : "") : parts[1].trim().replace("'", "");
-                Object rowVal = row.get(col);
-                if (rowVal == null) return false;
-                String regex = pattern.replace("%", ".*").replace("_", ".");
-                if (!Pattern.compile(regex, Pattern.CASE_INSENSITIVE).matcher(String.valueOf(rowVal)).matches()) {
-                    return false;
-                }
-            } else if (c.toUpperCase(Locale.ROOT).contains("IS NULL")) {
-                String col = cleanCol(c.replace("IS NULL", ""));
-                if (row.get(col) != null) return false;
-            } else if (c.toUpperCase(Locale.ROOT).contains("IS NOT NULL")) {
-                String col = cleanCol(c.replace("IS NOT NULL", ""));
-                if (row.get(col) == null) return false;
+            if (c.startsWith("(") && c.endsWith(")")) {
+                c = c.substring(1, c.length() - 1).trim();
             }
+            if (c.toUpperCase(Locale.ROOT).contains(" OR ")) {
+                String[] orTokens = c.split("(?i)\\s+OR\\s+");
+                boolean anyMatched = false;
+                int currentParam = paramIndex;
+                for (String orCond : orTokens) {
+                    if (evaluateSingleCondition(orCond.trim(), row, params, currentParam)) {
+                        anyMatched = true;
+                    }
+                    for (char ch : orCond.toCharArray()) {
+                        if (ch == '?') currentParam++;
+                    }
+                }
+                for (char ch : c.toCharArray()) {
+                    if (ch == '?') paramIndex++;
+                }
+                if (!anyMatched) return false;
+                continue;
+            }
+
+            if (!evaluateSingleCondition(c, row, params, paramIndex)) {
+                return false;
+            }
+            for (char ch : c.toCharArray()) {
+                if (ch == '?') paramIndex++;
+            }
+        }
+        return true;
+    }
+
+    private boolean evaluateSingleCondition(String c, RowData row, List<Object> params, int paramIndex) {
+        if (c.contains("=")) {
+            String[] parts = c.split("=");
+            String p0 = parts[0].trim();
+            String p1 = parts[1].trim();
+            if (p0.equalsIgnoreCase(p1)) {
+                return true; // Tautology like 1=1
+            }
+            String col = cleanCol(p0);
+            Object targetVal = p1.equals("?") ? (paramIndex < params.size() ? params.get(paramIndex) : null) : p1.replace("'", "");
+            Object rowVal = row.get(col);
+            return Objects.equals(normalizeValue(rowVal), normalizeValue(targetVal));
+        } else if (c.toUpperCase(Locale.ROOT).contains("LIKE")) {
+            String[] parts = c.split("(?i)\\s+LIKE\\s+");
+            String col = cleanCol(parts[0]);
+            String pattern = parts[1].trim().equals("?") ? String.valueOf(paramIndex < params.size() ? params.get(paramIndex) : "") : parts[1].trim().replace("'", "");
+            Object rowVal = row.get(col);
+            if (rowVal == null) return false;
+            String regex = pattern.replace("%", ".*").replace("_", ".");
+            return Pattern.compile(regex, Pattern.CASE_INSENSITIVE).matcher(String.valueOf(rowVal)).matches();
+        } else if (c.toUpperCase(Locale.ROOT).contains("IS NULL")) {
+            String col = cleanCol(c.replace("IS NULL", ""));
+            return row.get(col) == null;
+        } else if (c.toUpperCase(Locale.ROOT).contains("IS NOT NULL")) {
+            String col = cleanCol(c.replace("IS NOT NULL", ""));
+            return row.get(col) != null;
         }
         return true;
     }

@@ -36,10 +36,10 @@ public class AuthServlet extends HttpServlet {
 
         if ("/api/auth/demo-accounts".equals(path)) {
             List<Map<String, String>> accounts = List.of(
-                    Map.of("role", "ADMIN", "roleLabel", "System Administrator", "email", "admin@pmtool.local", "name", "Alex Rivera (Admin)"),
-                    Map.of("role", "PROJECT_MANAGER", "roleLabel", "Lead Project Manager", "email", "sarah.pm@pmtool.local", "name", "Sarah Connor (Lead PM)"),
-                    Map.of("role", "TEAM_MEMBER", "roleLabel", "Senior Backend Engineer", "email", "marcus.dev@pmtool.local", "name", "Marcus Vance (Backend)"),
-                    Map.of("role", "TEAM_MEMBER", "roleLabel", "UI/UX & Frontend Engineer", "email", "elena.ui@pmtool.local", "name", "Elena Rostova (UI/UX)")
+                    Map.of("role", "ADMIN", "roleLabel", "System Administrator", "email", "admin@pmtool.local", "name", "Sarah Jenkins (Admin)"),
+                    Map.of("role", "PROJECT_MANAGER", "roleLabel", "Lead Project Manager", "email", "manager@pmtool.local", "name", "David Vance (PM)"),
+                    Map.of("role", "TEAM_MEMBER", "roleLabel", "Senior Backend Engineer", "email", "dev1@pmtool.local", "name", "Alex Rivera (Backend)"),
+                    Map.of("role", "TEAM_MEMBER", "roleLabel", "Frontend & QA Engineer", "email", "dev2@pmtool.local", "name", "Elena Rostova (Frontend)")
             );
             resp.sendJson(200, accounts);
             return;

@@ -93,6 +93,49 @@ public class TableData implements Serializable {
         }
     }
 
+    public int updateMatching(java.util.function.Predicate<RowData> matcher, Map<String, Object> updateValues) {
+        ensureLock();
+        rwLock.writeLock().lock();
+        try {
+            int updated = 0;
+            for (RowData r : rows) {
+                if (matcher.test(r)) {
+                    for (Map.Entry<String, Object> entry : updateValues.entrySet()) {
+                        r.set(entry.getKey(), entry.getValue());
+                    }
+                    if (primaryKeyColumn != null && updateValues.containsKey(primaryKeyColumn)) {
+                        primaryKeyIndex.put(r.get(primaryKeyColumn), r);
+                    }
+                    updated++;
+                }
+            }
+            return updated;
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    public int deleteMatching(java.util.function.Predicate<RowData> matcher) {
+        ensureLock();
+        rwLock.writeLock().lock();
+        try {
+            int initialSize = rows.size();
+            Iterator<RowData> it = rows.iterator();
+            while (it.hasNext()) {
+                RowData r = it.next();
+                if (matcher.test(r)) {
+                    if (primaryKeyColumn != null) {
+                        primaryKeyIndex.remove(r.get(primaryKeyColumn));
+                    }
+                    it.remove();
+                }
+            }
+            return initialSize - rows.size();
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
     public int deleteRows(List<RowData> targets) {
         ensureLock();
         rwLock.writeLock().lock();

@@ -62,6 +62,9 @@ const Api = (function () {
                 throw new Error(message);
             }
 
+            if (data && typeof data === "object" && data.success !== undefined && data.data !== undefined) {
+                return data.data;
+            }
             return data;
         } catch (err) {
             throw err;

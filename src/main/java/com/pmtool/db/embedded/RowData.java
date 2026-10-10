@@ -40,4 +40,17 @@ public class RowData implements Serializable, Cloneable {
         copy.values.putAll(this.values);
         return copy;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        RowData rowData = (RowData) o;
+        return Objects.equals(values, rowData.values);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(values);
+    }
 }

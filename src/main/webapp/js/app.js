@@ -65,7 +65,7 @@ async function handleLoginSubmit(e) {
         btn.disabled = true;
         btn.textContent = "Signing In...";
         const res = await Api.auth.login(email, password);
-        Api.setToken(res.sessionId);
+        Api.setToken(res.token || res.sessionId);
         currentUser = res.user;
         showToast("Signed in as " + currentUser.fullName, "success");
         showMainLayout();
