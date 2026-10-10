@@ -6,18 +6,18 @@ The platform provides dedicated, role-separated workspaces for **Administrators*
 
 ---
 
-## Academic Marking Rubric Compliance
+## Technical Highlights & Engineering Design
 
-This project has been engineered to strictly satisfy all requirements for both Java Web and GUI project marking rubrics:
+This project demonstrates production-grade enterprise software architecture built on core Java standards:
 
-| Rubric Criterion | Marks | Implementation in Codebase |
+| Architectural Component | Engineering Pattern / Concept | Implementation in Codebase |
 | :--- | :--- | :--- |
-| **OOP Implementation** (Polymorphism, Inheritance, Exception Handling, Interfaces) | **10 Marks** | `BaseEntity`, `Identifiable<ID>`, `Auditable`, polymorphic `AbstractJdbcDao<T, ID>`, `GenericDao<T, ID>`, 5 domain services (`AuthService`, `ProjectService`, `TaskService`, `UserService`), and structured custom exception hierarchy (`AppException`, `ValidationException`, `ResourceNotFoundException`, `AuthenticationException`, `DatabaseException`). |
-| **Collections & Generics** | **6 Marks** | Extensive use of Java Collections Framework and Generics: `AbstractJdbcDao<T, ID>`, type-safe `Optional<T>` and `List<T>` repositories, `ConcurrentHashMap` for session registry and event subscriptions, `LinkedHashMap` for deterministic order preservation, and `BlockingQueue` in thread pool. |
-| **Multithreading & Synchronization** | **4 Marks** | Custom `AsyncWorkerPool` with `ThreadPoolExecutor`, bounded queue, and named daemon threads (`PMTool-Worker-N`); `ThreadSafeConnectionPool` with double-checked locking and synchronized pool acquisition; `ThreadLocal<User>` security context isolation; non-blocking asynchronous audit log worker via `EventBus`. |
-| **Classes for Database Operations (DAO Pattern)** | **7 Marks** | 8 dedicated DAO repositories (`UserDao`, `ProjectDao`, `MilestoneDao`, `TaskDao`, `TaskTimeLogDao`, `CommentDao`, `AuditLogDao`, `SystemSettingDao`) implementing the Data Access Object pattern with parameterized SQL queries and row mapping. |
-| **Database Connectivity (JDBC)** | **3 Marks** | Standard JDBC connectivity (`java.sql.Driver`, `Connection`, `PreparedStatement`, `ResultSet`, `Statement`) with transaction support, auto-commit management, and connection release mechanics. |
-| **Servlets & Web Integration** | **7 Marks** | Custom lightweight HTTP servlet engine (`HttpServerManager`), URL pattern router and dispatcher (`DispatcherServlet`), filter chaining (`AuthenticationFilter`, `RoleAuthorizationFilter`), and RESTful controller endpoints. |
+| **Object-Oriented Design** | Polymorphism, Inheritance, Interfaces, Exception Hierarchy | `BaseEntity`, `Identifiable<ID>`, `Auditable`, polymorphic `AbstractJdbcDao<T, ID>`, `GenericDao<T, ID>`, 5 domain services (`AuthService`, `ProjectService`, `TaskService`, `UserService`), and structured custom exception hierarchy (`AppException`, `ValidationException`, `ResourceNotFoundException`, `AuthenticationException`, `DatabaseException`). |
+| **Collections & Generics** | Type-Safe Containers, Thread-Safe Maps & Queues | Extensive use of Java Collections Framework and Generics: `AbstractJdbcDao<T, ID>`, type-safe `Optional<T>` and `List<T>` repositories, `ConcurrentHashMap` for session registry and event subscriptions, `LinkedHashMap` for deterministic order preservation, and `BlockingQueue` in thread pool. |
+| **Multithreading & Concurrency** | Worker Pools, Locks, Thread Isolation & Event Bus | Custom `AsyncWorkerPool` with `ThreadPoolExecutor`, bounded queue, and named daemon threads (`PMTool-Worker-N`); `ThreadSafeConnectionPool` with double-checked locking and synchronized pool acquisition; `ThreadLocal<User>` security context isolation; non-blocking asynchronous audit log worker via `EventBus`. |
+| **Database Operations (DAO Pattern)** | Repository Abstraction, Encapsulated Query Layer | 8 dedicated DAO repositories (`UserDao`, `ProjectDao`, `MilestoneDao`, `TaskDao`, `TaskTimeLogDao`, `CommentDao`, `AuditLogDao`, `SystemSettingDao`) implementing the Data Access Object pattern with parameterized SQL queries and row mapping. |
+| **Relational Database Connectivity (JDBC)** | Driver, Connection Pool & Transactions | Standard JDBC connectivity (`java.sql.Driver`, `Connection`, `PreparedStatement`, `ResultSet`, `Statement`) with transaction support, auto-commit management, and connection release mechanics. |
+| **Servlets & Web Integration** | HTTP Request Routing, Middleware Pipeline & REST | Custom lightweight HTTP servlet engine (`HttpServerManager`), URL pattern router and dispatcher (`DispatcherServlet`), filter chaining (`AuthenticationFilter`, `RoleAuthorizationFilter`), and RESTful controller endpoints. |
 
 ---
 
@@ -230,19 +230,19 @@ A 13-slide executive presentation file is located in the repository under:
 presentation/Online_Project_Management_Tool_Presentation.pptx
 ```
 The presentation covers:
-1. Title & Academic Context
+1. Executive Project Overview & Objectives
 2. Problem Statement & Motivation
 3. Proposed Solution & Core Features
 4. Stakeholder Roles & Access Control Matrix
 5. System Architecture & Layered Design
 6. Relational Database Schema & Entity Relationships
-7. Core Java & OOP Implementation
+7. Core Java & Object-Oriented Architecture
 8. Collections Framework, Generics & Data Structures
 9. Multithreading, Concurrency & Synchronization
 10. Automated Progress Synchronization Engine
 11. Security, Password Hashing & RBAC Enforcement
 12. Enterprise User Interface & Dashboard Showcase
-13. Conclusion, Deliverables & Academic Rubric Summary
+13. Conclusion, Deliverables & Architectural Summary
 
 ---
 
