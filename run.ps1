@@ -14,10 +14,11 @@ if (-not (Test-Path "target\classes")) {
 }
 
 Write-Host "[1/3] Compiling Java source files..." -ForegroundColor Yellow
-$javaFiles = Get-ChildItem -Path "src/main/java" -Filter "*.java" -Recurse | ForEach-Object { '"' + ($_.FullName -replace '\', '/') + '"' }
+$javaFiles = Get-ChildItem -Path "src/main/java" -Filter "*.java" -Recurse | ForEach-Object { $_.FullName.Replace('\\', '/') }
 $javaFiles | Set-Content -Path "sources.txt" -Encoding utf8
 
-& javac -encoding UTF-8 -d target/classes @sources.txt
+$sources = Get-Content sources.txt
+& javac -encoding UTF-8 -d target/classes $sources
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ERROR] Compilation failed. Please review error output above." -ForegroundColor Red
     Remove-Item "sources.txt" -ErrorAction SilentlyContinue

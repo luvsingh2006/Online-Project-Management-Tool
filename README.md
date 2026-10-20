@@ -6,7 +6,7 @@ The platform provides dedicated, role-separated workspaces for **Administrators*
 
 ---
 
-## Technical Highlights & Engineering Design
+## Key Features
 
 This project demonstrates production-grade enterprise software architecture built on core Java standards:
 
